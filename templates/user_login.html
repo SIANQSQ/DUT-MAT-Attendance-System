@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录 - 大连理工大学航模队考勤系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<style>
+    a
+    {
+        text-decoration: none;
+        color: inherit;
+    }
+</style>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <i class="fas fa-user-clock"></i>
+            <h1>航模队考勤系统</h1>
+            <p class="login-subtitle">请输入密码进入考勤系统</p>
+        </div>
+
+        <form class="login-form" method="POST" id="login-form">
+            <div class="input-group">
+                <i class="fas fa-lock"></i>
+                <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    placeholder="请输入签到密码"
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <button type="submit" class="login-btn" id="login-btn">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>进入签到系统</span>
+            </button>
+
+            {% if error %}
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ error }}
+            </div>
+            {% endif %}
+        </form>
+
+        <div class="login-links">
+            <a href="{{ url_for('admin_login') }}" class="admin-link">
+                <i class="fas fa-user-shield"></i>
+                管理员登录
+            </a>
+        </div>
+
+        <div class="footer">
+            <p>大连理工大学航模队 &copy; 2025</p>
+            <a href="https://qsq.cool">Powered by QSQ</a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('login-form');
+            const passwordInput = document.getElementById('password');
+            const loginBtn = document.getElementById('login-btn');
+
+            // 自动聚焦到密码输入框
+            passwordInput.focus();
+
+            // 表单提交处理
+            form.addEventListener('submit', function(e) {
+                const password = passwordInput.value.trim();
+
+                if (!password) {
+                    e.preventDefault();
+                    showError('请输入密码');
+                    return;
+                }
+
+                // 显示加载状态
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+                loginBtn.disabled = true;
+            });
+
+            // 密码输入框回车事件
+            passwordInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    form.submit();
+                }
+            });
+
+            // 清除错误信息
+            passwordInput.addEventListener('input', function() {
+                const errorMsg = document.querySelector('.error-message');
+                if (errorMsg && this.value.trim()) {
+                    errorMsg.style.opacity = '0';
+                    setTimeout(() => {
+                        if (errorMsg.parentNode) {
+                            errorMsg.parentNode.removeChild(errorMsg);
+                        }
+                    }, 300);
+                }
+            });
+        });
+
+        function showError(message) {
+            // 移除现有错误信息
+            const existingError = document.querySelector('.error-message');
+            if (existingError) {
+                existingError.remove();
+            }
+
+            // 创建新的错误信息
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+
+            const form = document.querySelector('.login-form');
+            form.appendChild(errorDiv);
+
+            // 聚焦到密码输入框
+            document.getElementById('password').focus();
+        }
+
+        // 页面加载动画
+        document.body.style.opacity = '0';
+        window.addEventListener('load', function() {
+            document.body.style.transition = 'opacity 0.5s ease';
+            document.body.style.opacity = '1';
+        });
+    </script>
+</body>
+</html>

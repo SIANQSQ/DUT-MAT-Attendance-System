@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大连理工大学航模队考勤系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<style>
+    a
+    {
+        text-decoration: none;
+        color: inherit;
+    }
+</style>
+<body>
+    <div class="container">
+        <div class="admin-login">
+            {% if admin %}
+            <button class="login-btn" onclick="location.href='/logout'">
+                <i class="fas fa-user-cog"></i> 管理员退出
+            </button>
+            {% elif user_logged_in %}
+            <div class="user-controls">
+                <button class="login-btn" onclick="location.href='/admin_login'">
+                    <i class="fas fa-user-shield"></i> 管理员登录
+                </button>
+                <button class="login-btn logout-btn" onclick="location.href='/logout'">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        <header>
+            <h1><i class="fas fa-user-clock"></i> 大连理工大学航模队考勤系统</h1>
+            <div class="subtitle">
+                入队/离队请签到/签退
+            </div>
+            <div class="date-display">
+                <span id="current-date">加载中...</span>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div class="people-grid" id="people-grid">
+                {% for group in groups %}
+                <div class="group" data-group-name="{{ group.name }}">
+                    <div class="group-header">
+                        {{ group.name }}
+                        {% if admin %}
+                        <div class="group-actions">
+                            <button class="group-action-btn" onclick="editGroup('{{ group.name }}')" title="编辑分组">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="person-list">
+                        {% for person in group.members %}
+                        <button class="person-btn not-signed" data-name="{{ person }}" id="btn-{{ person }}">
+                            <span class="status-indicator"></span>
+                            {{ person }}
+                            {% if admin %}
+                            <button class="delete-member-btn" onclick="deleteMember('{{ group.name }}', '{{ person }}')" title="删除成员">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
+                        </button>
+                        {% endfor %}
+                        {% if admin %}
+                        <button class="add-member-btn" onclick="addMember('{{ group.name }}')" title="添加成员">
+                            <i class="fas fa-plus"></i> 添加成员
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% if admin %}
+                <div class="group add-group-card">
+                    <button class="add-group-btn" onclick="addGroup()" title="添加新分组">
+                        <i class="fas fa-plus"></i>
+                        <span>添加新分组</span>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="controls">
+                <div class="panel">
+                    <h2><i class="fas fa-chart-bar"></i> 今日工作时长统计</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-people">{{ total_people }}</div>
+                            <div class="stat-label">总人数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="signed-in-count">{{ signed_in_count }}</div>
+                            <div class="stat-label">已签到</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="signed-out-count">{{ signed_out_count }}</div>
+                            <div class="stat-label">已签退</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="not-signed-count">{{ not_signed_count }}</div>
+                            <div class="stat-label">未签到</div>
+                        </div>
+                    </div>
+
+                    {% if admin %}
+                    <button class="btn btn-export" id="export-today-btn">
+                        <i class="fas fa-file-excel"></i> 导出今日报表
+                    </button>
+                    {% endif %}
+
+                    <button class="btn btn-export" onclick="location.href='/timeline'">
+                        <i class="fas fa-chart-bar"></i> 查看工作时长
+                    </button>
+                </div>
+
+                <div class="panel">
+                    <h2><i class="fas fa-history"></i> 最近操作</h2>
+                    <div class="recent-activity" id="recent-activity">
+                        <div class="activity-empty">暂无操作记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if admin %}
+        <div class="history-panel" id="history-panel">
+            <div class="history-header">
+                <h2><i class="fas fa-history"></i> 历史记录管理</h2>
+                <button class="btn btn-export" id="refresh-history">
+                    <i class="fas fa-sync-alt"></i> 刷新记录
+                </button>
+            </div>
+
+            <div class="history-controls">
+                <select class="date-selector" id="date-selector">
+                    <option value="">-- 选择日期 --</option>
+                </select>
+                <button class="btn btn-export" id="view-history-btn">
+                    <i class="fas fa-eye"></i> 查看记录
+                </button>
+                <button class="btn btn-export" id="export-history-btn">
+                    <i class="fas fa-file-excel"></i> 导出报表
+                </button>
+            </div>
+
+            <div class="history-container" id="history-container">
+                <div class="history-empty">请选择日期查看历史记录</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <footer>
+            <a href="https://qsq.cool">大连理工大学航模队 &copy; 2025 | Powered by QSQ</a>
+        </footer>
+    </div>
+
+    <!-- 成员管理模态框 -->
+    {% if admin %}
+    <div id="member-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">添加成员</h3>
+                <button class="modal-close" onclick="closeMemberModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="member-name">成员姓名</label>
+                    <input type="text" id="member-name" placeholder="请输入成员姓名" maxlength="20">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeMemberModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveMember()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分组管理模态框 -->
+    <div id="group-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="group-modal-title">编辑分组</h3>
+                <button class="modal-close" onclick="closeGroupModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="group-name">分组名称</label>
+                    <input type="text" id="group-name" placeholder="请输入分组名称" maxlength="20">
+                </div>
+                <div class="input-group">
+                    <label>分组成员</label>
+                    <div id="group-members-list" class="members-list">
+                        <!-- 动态生成成员列表 -->
+                    </div>
+                    <button class="btn btn-secondary" onclick="addMemberToGroup()">
+                        <i class="fas fa-plus"></i> 添加成员
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeGroupModal()">取消</button>
+                <button class="btn btn-danger" onclick="deleteGroup()" id="delete-group-btn" style="display: none;">删除分组</button>
+                <button class="btn btn-primary" onclick="saveGroup()">保存</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        // 全局变量
+        let personStatus = {};
+        let allMembers = [];
+        let isAdmin = {{ admin|lower }};
+        let currentGroups = {{ groups|tojson }};
+        let currentEditingGroup = null;
+        let currentEditingGroupIndex = -1;
+
+        // 收集所有成员
+        {% for group in groups %}
+            {% for person in group.members %}
+                allMembers.push('{{ person }}');
+                personStatus['{{ person }}'] = 'not-signed';
+            {% endfor %}
+        {% endfor %}
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，开始初始化...');
+            initializeApp();
+        });
+
+        // 初始化应用
+        function initializeApp() {
+            // 1. 更新时间显示
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+
+            // 2. 绑定事件
+            bindEvents();
+
+            // 3. 加载签到数据
+            loadAttendanceData();
+
+            // 4. 如果是管理员，显示管理面板
+            if (isAdmin) {
+                showAdminPanels();
+            }
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            console.log('绑定事件...');
+
+            // 签到按钮事件
+            bindSignEvents();
+
+            // 导出今日报表
+            const exportBtn = document.getElementById('export-today-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function() {
+                    console.log('导出今日报表');
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在导出...';
+                    this.disabled = true;
+                    window.location.href = '/export';
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="fas fa-file-excel"></i> 导出今日报表';
+                        this.disabled = false;
+                    }, 3000);
+                });
+            }
+
+            // 管理员功能
+            if (isAdmin) {
+                bindAdminEvents();
+            }
+        }
+
+        // 绑定签到事件
+        function bindSignEvents() {
+            document.querySelectorAll('.person-btn:not(.add-member-btn)').forEach(btn => {
+                // 移除之前的事件监听器
+                btn.replaceWith(btn.cloneNode(true));
+            });
+
+            // 重新绑定事件
+            document.querySelectorAll('.person-btn:not(.add-member-btn)').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    // 如果点击的是删除按钮，不处理签到
+                    if (e.target.closest('.delete-member-btn')) {
+                        e.stopPropagation();
+                        return;
+                    }
+
+                    const name = this.dataset.name;
+                    console.log('点击签到按钮:', name);
+                    handleSign(name);
+                });
+            });
+        }
+
+        // 绑定管理员事件
+        function bindAdminEvents() {
+            // 刷新历史记录
+            const refreshBtn = document.getElementById('refresh-history');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    loadHistoryDates();
+                });
+            }
+
+            // 查看历史记录
+            const viewBtn = document.getElementById('view-history-btn');
+            if (viewBtn) {
+                viewBtn.addEventListener('click', function() {
+                    const dateStr = document.getElementById('date-selector').value;
+                    if (dateStr) {
+                        viewHistory(dateStr);
+                    } else {
+                        alert('请选择日期');
+                    }
+                });
+            }
+
+            // 导出历史记录
+            const exportHistoryBtn = document.getElementById('export-history-btn');
+            if (exportHistoryBtn) {
+                exportHistoryBtn.addEventListener('click', function() {
+                    const dateStr = document.getElementById('date-selector').value;
+                    if (dateStr) {
+                        window.location.href = `/export/${dateStr}`;
+                    } else {
+                        alert('请选择日期');
+                    }
+                });
+            }
+
+            // 模态框事件
+            bindModalEvents();
+        }
+
+        // 绑定模态框事件
+        function bindModalEvents() {
+            // 点击模态框外部关闭
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal')) {
+                    e.target.style.display = 'none';
+                }
+            });
+
+            // 回车键保存
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const memberModal = document.getElementById('member-modal');
+                    const groupModal = document.getElementById('group-modal');
+
+                    if (memberModal.style.display === 'block') {
+                        saveMember();
+                    } else if (groupModal.style.display === 'block') {
+                        saveGroup();
+                    }
+                }
+            });
+        }
+
+        // 成员管理功能
+        function addMember(groupName) {
+            currentEditingGroup = groupName;
+            document.getElementById('modal-title').textContent = `添加成员到 ${groupName}`;
+            document.getElementById('member-name').value = '';
+            document.getElementById('member-modal').style.display = 'block';
+            document.getElementById('member-name').focus();
+        }
+
+        function deleteMember(groupName, memberName) {
+            if (confirm(`确定要删除成员 "${memberName}" 吗？`)) {
+                fetch(`/api/groups/${encodeURIComponent(groupName)}/members/${encodeURIComponent(memberName)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showMessage('成员删除成功', 'success');
+                        refreshGroupsDisplay();
+                    } else {
+                        showMessage(data.error || '删除失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('删除成员失败:', error);
+                    showMessage('删除失败', 'error');
+                });
+            }
+        }
+
+        function closeMemberModal() {
+            document.getElementById('member-modal').style.display = 'none';
+            currentEditingGroup = null;
+        }
+
+        function saveMember() {
+            const memberName = document.getElementById('member-name').value.trim();
+
+            if (!memberName) {
+                showMessage('请输入成员姓名', 'error');
+                return;
+            }
+
+            if (!currentEditingGroup) {
+                showMessage('未选择分组', 'error');
+                return;
+            }
+
+            fetch(`/api/groups/${encodeURIComponent(currentEditingGroup)}/members`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: memberName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showMessage('成员添加成功', 'success');
+                    closeMemberModal();
+                    refreshGroupsDisplay();
+                } else {
+                    showMessage(data.error || '添加失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('添加成员失败:', error);
+                showMessage('添加失败', 'error');
+            });
+        }
+
+        // 分组管理功能
+        function editGroup(groupName) {
+            const group = currentGroups.find(g => g.name === groupName);
+            if (!group) return;
+
+            currentEditingGroup = groupName;
+            currentEditingGroupIndex = currentGroups.findIndex(g => g.name === groupName);
+
+            document.getElementById('group-modal-title').textContent = `编辑分组: ${groupName}`;
+            document.getElementById('group-name').value = groupName;
+            document.getElementById('delete-group-btn').style.display = 'inline-block';
+
+            renderGroupMembersList(group.members);
+            document.getElementById('group-modal').style.display = 'block';
+        }
+
+        function addGroup() {
+            currentEditingGroup = null;
+            currentEditingGroupIndex = -1;
+
+            document.getElementById('group-modal-title').textContent = '添加新分组';
+            document.getElementById('group-name').value = '';
+            document.getElementById('delete-group-btn').style.display = 'none';
+
+            renderGroupMembersList([]);
+            document.getElementById('group-modal').style.display = 'block';
+            document.getElementById('group-name').focus();
+        }
+
+        function renderGroupMembersList(members) {
+            const container = document.getElementById('group-members-list');
+            container.innerHTML = '';
+
+            members.forEach((member, index) => {
+                const memberDiv = document.createElement('div');
+                memberDiv.className = 'member-item';
+                memberDiv.innerHTML = `
+                    <input type="text" value="${member}" onchange="updateGroupMember(${index}, this.value)">
+                    <button type="button" onclick="removeGroupMember(${index})" class="btn-remove">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                container.appendChild(memberDiv);
+            });
+        }
+
+        function addMemberToGroup() {
+            const container = document.getElementById('group-members-list');
+            const memberCount = container.children.length;
+
+            const memberDiv = document.createElement('div');
+            memberDiv.className = 'member-item';
+            memberDiv.innerHTML = `
+                <input type="text" placeholder="成员姓名" onchange="updateGroupMember(${memberCount}, this.value)">
+                <button type="button" onclick="removeGroupMember(${memberCount})" class="btn-remove">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(memberDiv);
+
+            // 聚焦到新输入框
+            memberDiv.querySelector('input').focus();
+        }
+
+        function updateGroupMember(index, value) {
+            // 这个函数在保存时会被调用，这里只是占位
+        }
+
+        function removeGroupMember(index) {
+            const container = document.getElementById('group-members-list');
+            const memberItems = container.querySelectorAll('.member-item');
+            if (memberItems[index]) {
+                memberItems[index].remove();
+                // 重新渲染以更新索引
+                const members = Array.from(container.querySelectorAll('input')).map(input => input.value.trim()).filter(v => v);
+                renderGroupMembersList(members);
+            }
+        }
+
+        function saveGroup() {
+            const groupName = document.getElementById('group-name').value.trim();
+            const memberInputs = document.querySelectorAll('#group-members-list input');
+            const members = Array.from(memberInputs).map(input => input.value.trim()).filter(v => v);
+
+            if (!groupName) {
+                showMessage('请输入分组名称', 'error');
+                return;
+            }
+
+            // 检查分组名称是否重复（编辑时排除自己）
+            const existingGroup = currentGroups.find((g, index) =>
+                g.name === groupName && index !== currentEditingGroupIndex
+            );
+            if (existingGroup) {
+                showMessage('分组名称已存在', 'error');
+                return;
+            }
+
+            // 更新本地数据
+            const newGroup = { name: groupName, members: members };
+
+            if (currentEditingGroupIndex >= 0) {
+                // 编辑现有分组
+                currentGroups[currentEditingGroupIndex] = newGroup;
+            } else {
+                // 添加新分组
+                currentGroups.push(newGroup);
+            }
+
+            // 保存到服务器
+            fetch('/api/groups', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(currentGroups)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showMessage('分组保存成功', 'success');
+                    closeGroupModal();
+                    refreshGroupsDisplay();
+                } else {
+                    showMessage(data.error || '保存失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('保存分组失败:', error);
+                showMessage('保存失败', 'error');
+            });
+        }
+
+        function deleteGroup() {
+            if (!currentEditingGroup) return;
+
+            if (confirm(`确定要删除分组 "${currentEditingGroup}" 吗？这将删除分组中的所有成员。`)) {
+                // 从本地数据中删除
+                currentGroups = currentGroups.filter(g => g.name !== currentEditingGroup);
+
+                // 保存到服务器
+                fetch('/api/groups', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(currentGroups)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showMessage('分组删除成功', 'success');
+                        closeGroupModal();
+                        refreshGroupsDisplay();
+                    } else {
+                        showMessage(data.error || '删除失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('删除分组失败:', error);
+                    showMessage('删除失败', 'error');
+                });
+            }
+        }
+
+        function closeGroupModal() {
+            document.getElementById('group-modal').style.display = 'none';
+            currentEditingGroup = null;
+            currentEditingGroupIndex = -1;
+        }
+
+        // 刷新分组显示
+        function refreshGroupsDisplay() {
+            fetch('/api/groups')
+                .then(response => response.json())
+                .then(groups => {
+                    currentGroups = groups;
+                    renderGroupsGrid(groups);
+                    updateMembersList();
+                    loadAttendanceData();
+                })
+                .catch(error => {
+                    console.error('刷新分组显示失败:', error);
+                    showMessage('刷新失败', 'error');
+                });
+        }
+
+        function renderGroupsGrid(groups) {
+            const grid = document.getElementById('people-grid');
+            grid.innerHTML = '';
+
+            // 渲染分组
+            groups.forEach(group => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'group';
+                groupDiv.setAttribute('data-group-name', group.name);
+
+                let groupHTML = `
+                    <div class="group-header">
+                        ${group.name}
+                        ${isAdmin ? `
+                        <div class="group-actions">
+                            <button class="group-action-btn" onclick="editGroup('${group.name}')" title="编辑分组">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="person-list">
+                `;
+
+                group.members.forEach(person => {
+                    groupHTML += `
+                        <button class="person-btn not-signed" data-name="${person}" id="btn-${person}">
+                            <span class="status-indicator"></span>
+                            ${person}
+                            ${isAdmin ? `
+                            <button class="delete-member-btn" onclick="deleteMember('${group.name}', '${person}')" title="删除成员">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            ` : ''}
+                        </button>
+                    `;
+                });
+
+                if (isAdmin) {
+                    groupHTML += `
+                        <button class="add-member-btn" onclick="addMember('${group.name}')" title="添加成员">
+                            <i class="fas fa-plus"></i> 添加成员
+                        </button>
+                    `;
+                }
+
+                groupHTML += '</div>';
+                groupDiv.innerHTML = groupHTML;
+                grid.appendChild(groupDiv);
+            });
+
+            // 添加新分组按钮
+            if (isAdmin) {
+                const addGroupDiv = document.createElement('div');
+                addGroupDiv.className = 'group add-group-card';
+                addGroupDiv.innerHTML = `
+                    <button class="add-group-btn" onclick="addGroup()" title="添加新分组">
+                        <i class="fas fa-plus"></i>
+                        <span>添加新分组</span>
+                    </button>
+                `;
+                grid.appendChild(addGroupDiv);
+            }
+
+            // 重新绑定签到事件
+            bindSignEvents();
+        }
+
+        function updateMembersList() {
+            allMembers = [];
+            personStatus = {};
+
+            currentGroups.forEach(group => {
+                group.members.forEach(member => {
+                    if (!allMembers.includes(member)) {
+                        allMembers.push(member);
+                        personStatus[member] = 'not-signed';
+                    }
+                });
+            });
+
+            // 更新统计
+            document.getElementById('total-people').textContent = allMembers.length;
+        }
+
+        // 处理签到/签退
+        function handleSign(name) {
+            console.log('处理签到:', name);
+
+            // 获取所有同名按钮
+            const buttons = document.querySelectorAll(`.person-btn[data-name="${name}"]`);
+            // 保存所有按钮的原始HTML
+            const originalHTMLs = Array.from(buttons).map(b => b.innerHTML);
+
+            // 显示加载状态
+            buttons.forEach((b, index) => {
+                b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                b.disabled = true;
+            });
+
+            fetch('/sign', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `name=${encodeURIComponent(name)}`
+            })
+            .then(response => {
+                console.log('签到响应状态:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('签到响应数据:', data);
+
+                if (data.status === 'success') {
+                    // 更新状态
+                    personStatus[name] = data.action === 'sign_in' ? 'signed-in' : 'signed-out';
+
+                    // 更新所有同名按钮
+                    updateAllButtonsForPerson(name, personStatus[name]);
+
+                    // 更新统计
+                    updateStats();
+
+                    // 添加活动记录
+                    addActivityRecord(name, data.action, data.time);
+
+                    // 显示成功消息
+                    const actionText = data.action === 'sign_in' ? '签到' : '签退';
+                    showMessage(`${name} ${actionText}成功！`, 'success');
+                } else {
+                    console.error('签到失败:', data.message);
+                    showMessage(data.message || '操作失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('签到请求失败:', error);
+                showMessage('网络错误，请重试', 'error');
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                buttons.forEach((b, index) => {
+                    b.innerHTML = originalHTMLs[index];
+                    b.disabled = false;
+                });
+            });
+        }
+
+        // 更新所有同名按钮
+        function updateAllButtonsForPerson(name, status) {
+            const buttons = document.querySelectorAll(`.person-btn[data-name="${name}"]`);
+            buttons.forEach(btn => {
+                btn.classList.remove('not-signed', 'signed-in', 'signed-out');
+                btn.classList.add(status);
+            });
+        }
+
+        // 加载签到数据
+        function loadAttendanceData() {
+            console.log('加载签到数据...');
+
+            fetch('/get_attendance')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('签到数据:', data);
+
+                    // 更新人员状态
+                    for (const name in data) {
+                        const records = data[name];
+                        if (records && records.length > 0) {
+                            const lastRecord = records[records.length - 1];
+                            if (lastRecord.sign_out) {
+                                personStatus[name] = 'signed-out';
+                            } else {
+                                personStatus[name] = 'signed-in';
+                            }
+                        } else {
+                            personStatus[name] = 'not-signed';
+                        }
+                    }
+
+                    // 更新所有人员按钮
+                    updateAllPersonButtons();
+                    updateStats();
+                })
+                .catch(error => {
+                    console.error('加载签到数据失败:', error);
+                    showMessage('加载数据失败', 'error');
+                });
+        }
+
+        // 更新单个人员按钮
+        function updatePersonButton(name, status) {
+            updateAllButtonsForPerson(name, status);
+        }
+
+        // 更新所有人员按钮
+        function updateAllPersonButtons() {
+            for (const name of allMembers) {
+                updatePersonButton(name, personStatus[name]);
+            }
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            let signedInCount = 0;
+            let signedOutCount = 0;
+            let notSignedCount = 0;
+
+            for (const name of allMembers) {
+                if (personStatus[name] === 'signed-in') {
+                    signedInCount++;
+                } else if (personStatus[name] === 'signed-out') {
+                    signedOutCount++;
+                } else {
+                    notSignedCount++;
+                }
+            }
+
+            document.getElementById('signed-in-count').textContent = signedInCount;
+            document.getElementById('signed-out-count').textContent = signedOutCount;
+            document.getElementById('not-signed-count').textContent = notSignedCount;
+            document.getElementById('total-people').textContent = allMembers.length;
+        }
+
+        // 更新日期时间
+        function updateDateTime() {
+            const now = new Date();
+            const options = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('zh-CN', options);
+        }
+
+        // 添加活动记录
+        function addActivityRecord(name, action, time) {
+            const container = document.getElementById('recent-activity');
+
+            // 移除空状态提示
+            const emptyMsg = container.querySelector('.activity-empty');
+            if (emptyMsg) {
+                emptyMsg.remove();
+            }
+
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+
+            const iconClass = action === 'sign_in' ? 'sign-in-icon' : 'sign-out-icon';
+            const icon = action === 'sign_in' ? 'fa-sign-in-alt' : 'fa-sign-out-alt';
+            const actionText = action === 'sign_in' ? '签到' : '签退';
+
+            item.innerHTML = `
+                <div class="activity-icon ${iconClass}">
+                    <i class="fas ${icon}"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-name">${name}</div>
+                    <div>${actionText}</div>
+                    <div class="activity-time">${time}</div>
+                </div>
+            `;
+
+            // 添加到顶部
+            container.insertBefore(item, container.firstChild);
+
+            // 限制最多10条记录
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            // 创建消息元素
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message message-${type}`;
+            msgDiv.textContent = message;
+            msgDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007bff'};
+            `;
+
+            document.body.appendChild(msgDiv);
+
+            // 3秒后自动移除
+            setTimeout(() => {
+                msgDiv.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (msgDiv.parentNode) {
+                        msgDiv.parentNode.removeChild(msgDiv);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // 显示管理员面板
+        function showAdminPanels() {
+            const historyPanel = document.getElementById('history-panel');
+            if (historyPanel) {
+                historyPanel.style.display = 'block';
+                loadHistoryDates();
+            }
+        }
+
+        // 加载历史日期
+        function loadHistoryDates() {
+            fetch('/get_available_dates')
+                .then(response => response.json())
+                .then(dates => {
+                    const selector = document.getElementById('date-selector');
+                    if (selector) {
+                        // 清空现有选项（保留第一个）
+                        while (selector.options.length > 1) {
+                            selector.remove(1);
+                        }
+
+                        // 添加新日期选项
+                        dates.forEach(dateStr => {
+                            const option = document.createElement('option');
+                            option.value = dateStr;
+                            option.textContent = dateStr;
+                            selector.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载历史日期失败:', error);
+                });
+        }
+
+        // 查看历史记录
+        function viewHistory(dateStr) {
+            fetch(`/get_history_attendance/${dateStr}`)
+                .then(response => response.json())
+                .then(records => {
+                    const container = document.getElementById('history-container');
+                    container.innerHTML = '';
+
+                    if (!records || Object.keys(records).length === 0) {
+                        container.innerHTML = '<div class="history-empty">该日期无签到记录</div>';
+                        return;
+                    }
+
+                    // 按组展示
+                    currentGroups.forEach(group => {
+                        const groupTitle = document.createElement('h3');
+                        groupTitle.textContent = group.name;
+                        groupTitle.style.cssText = 'margin: 15px 0 10px; color: #1a2a6c; font-size: 1.2rem;';
+                        container.appendChild(groupTitle);
+
+                        group.members.forEach(person => {
+                            const historyItem = document.createElement('div');
+                            historyItem.className = 'history-item';
+
+                            const personRecords = records[person] || [];
+                            const recordCount = personRecords.length;
+
+                            if (recordCount > 0) {
+                                historyItem.innerHTML = `
+                                    <span class="history-date">${person}</span>
+                                    <span>签到 ${recordCount} 次</span>
+                                `;
+                            } else {
+                                historyItem.innerHTML = `
+                                    <span class="history-date">${person}</span>
+                                    <span style="color: #6c757d;">无签到记录</span>
+                                `;
+                            }
+
+                            container.appendChild(historyItem);
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('查看历史记录失败:', error);
+                    showMessage('加载历史记录失败', 'error');
+                });
+        }
+
+        // 添加CSS动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

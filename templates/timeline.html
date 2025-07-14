@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作时长</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        /* 时间线专用样式 */
+        .timeline-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        .timeline-header {
+            background: linear-gradient(90deg, #1a2a6c, #b21f1f);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+            margin-bottom: 20px;
+        }
+
+        .timeline-title {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .timeline-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .timeline-date {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 1rem;
+            display: inline-block;
+            margin-top: 15px;
+        }
+
+        .timeline-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .timeline-group {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+
+        .timeline-group-header {
+            background: linear-gradient(90deg, #4b6cb7, #182848);
+            color: white;
+            padding: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+
+        .timeline-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .person-name {
+            min-width: 120px;
+            font-weight: bold;
+            color: #1a2a6c;
+            margin-right: 15px;
+        }
+
+        .timeline-bar-container {
+            flex: 1;
+            height: 40px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            position: relative;
+            overflow: visible;
+            border: 1px solid #e0e0e0;
+        }
+
+        .time-marker {
+            position: absolute;
+            height: 100%;
+            width: 1px;
+            background: rgba(0, 0, 0, 0.15);
+            top: 0;
+            z-index: 1;
+        }
+
+        .time-label {
+            position: absolute;
+            top: -30px;
+            font-size: 0.75rem;
+            color: #666;
+            transform: translateX(-50%);
+            font-weight: 500;
+            background: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .work-period {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(135deg, #43cea2, #185a9d);
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            opacity: 0.9;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            z-index: 2;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .work-period:hover {
+            opacity: 1;
+            transform: scaleY(1.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+            z-index: 10;
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .work-period-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            z-index: 20;
+            transform: translateY(-110%);
+            left: 50%;
+            margin-left: -50px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .work-period-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border: 5px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .work-period:hover .work-period-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-120%);
+        }
+
+        .work-summary {
+            margin-left: 15px;
+            min-width: 120px;
+            text-align: right;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .total-time {
+            font-weight: bold;
+            color: #1a2a6c;
+        }
+
+        .session-count {
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-style: italic;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px;
+        }
+
+        .back-btn {
+            background: linear-gradient(135deg, #1a2a6c, #4b6cb7);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 20px auto;
+        }
+
+        .back-btn:hover {
+            background: linear-gradient(135deg, #0d1b4d, #3a5a9d);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-summary {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #1a2a6c;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .timeline-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .person-name {
+                min-width: auto;
+                margin-right: 0;
+                text-align: center;
+            }
+
+            .work-summary {
+                margin-left: 0;
+                text-align: center;
+            }
+
+            .legend {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .timeline-container {
+                padding: 10px;
+            }
+
+            .timeline-title {
+                font-size: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="timeline-container">
+        <div class="timeline-header">
+            <h1 class="timeline-title"><i class="fas fa-chart-bar"></i> 工作时长示意图</h1>
+            <div class="timeline-subtitle">
+                你与别人的差距一目了然
+            </div>
+            <div class="timeline-date">
+                <i class="fas fa-calendar-day"></i> {{ today }}
+            </div>
+        </div>
+
+        <div class="timeline-controls">
+            <button class="back-btn" onclick="location.href='/'">
+                <i class="fas fa-arrow-left"></i> 返回主页面
+            </button>
+        </div>
+
+        <!-- 统计汇总 -->
+        <div class="stats-summary">
+            <h2 style="color: #1a2a6c; margin-bottom: 15px; text-align: center;">
+                <i class="fas fa-chart-pie"></i> 今日工作统计
+            </h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-workers">0</div>
+                    <div class="stat-label">工作人数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-sessions">0</div>
+                    <div class="stat-label">工作时段</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-hours">0</div>
+                    <div class="stat-label">总工作时长(小时)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avg-hours">0</div>
+                    <div class="stat-label">平均时长(小时)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #43cea2, #185a9d);"></div>
+                <span><i class="fas fa-clock"></i> 有效工作时间</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f0f0f0; border: 1px solid #ddd;"></div>
+                <span><i class="fas fa-moon"></i> 无效工作时间</span>
+            </div>
+            <div class="legend-item">
+                <i class="fas fa-info-circle" style="color: #007bff;"></i>
+                <span>鼠标悬停查看详细时间</span>
+            </div>
+        </div>
+
+        {% for group in groups %}
+        <div class="timeline-group">
+            <div class="timeline-group-header">
+                <i class="fas fa-users"></i> {{ group.name }}
+            </div>
+
+            {% for person in group.members %}
+            <div class="timeline-item">
+                <div class="person-name">{{ person }}</div>
+                <div class="timeline-bar-container" id="timeline-{{ person }}">
+                    <!-- 时间标记 (0-24小时) -->
+                    {% for hour in range(0, 25, 3) %}
+                    <div class="time-marker" style="left: {{ hour/24*100 }}%;">
+                        <div class="time-label">{{ hour }}:00</div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- 工作时间段 -->
+                    {% if work_periods[person] %}
+                        {% for period in work_periods[person] %}
+                        <div class="work-period"
+                             style="left: {{ period.start/24*100 }}%;
+                                    width: {{ (period.end - period.start)/24*100 }}%;"
+                             data-start="{{ period.start }}"
+                             data-end="{{ period.end }}"
+                             data-duration="{{ period.duration }}">
+                            <div class="work-period-tooltip">
+                                <div><i class="fas fa-play"></i> 开始: {{ "%.1f"|format(period.start) }}时</div>
+                                <div><i class="fas fa-stop"></i> 结束: {{ "%.1f"|format(period.end) }}时</div>
+                                <div><i class="fas fa-hourglass-half"></i> 时长: {{ "%.1f"|format(period.duration) }}小时</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- 工作汇总信息 -->
+                <div class="work-summary">
+                    {% if work_periods[person] %}
+                        {% set total_duration = work_periods[person]|sum(attribute='duration') %}
+                        <div class="total-time">{{ "%.1f"|format(total_duration) }}小时</div>
+                        <div class="session-count">{{ work_periods[person]|length }}个时段</div>
+                    {% else %}
+                        <div class="total-time">0小时</div>
+                        <div class="session-count">无记录</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            {# 检查该组是否有任何成员有工作记录 #}
+            {% set has_record = false %}
+            {% for person in group.members %}
+                {% if work_periods[person] %}
+                    {% set has_record = true %}
+                {% endif %}
+            {% endfor %}
+            {% if not has_record %}
+                <div class="no-data">
+                    <i class="fas fa-info-circle"></i> 该组今日无工作记录
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button class="back-btn" onclick="location.href='/'">
+            <i class="fas fa-arrow-left"></i> 返回主页面
+        </button>
+    </div>
+
+    <script>
+        // 计算并显示统计信息
+        document.addEventListener('DOMContentLoaded', function() {
+            calculateStats();
+
+            // 添加工作时段点击事件
+            document.querySelectorAll('.work-period').forEach(period => {
+                period.addEventListener('click', function() {
+                    const start = parseFloat(this.dataset.start);
+                    const end = parseFloat(this.dataset.end);
+                    const duration = parseFloat(this.dataset.duration);
+
+                    const startTime = formatTime(start);
+                    const endTime = formatTime(end);
+
+                    alert(`工作时段详情:\n开始时间: ${startTime}\n结束时间: ${endTime}\n工作时长: ${duration.toFixed(1)}小时`);
+                });
+            });
+        });
+
+        function calculateStats() {
+            const workPeriods = document.querySelectorAll('.work-period');
+            let totalWorkers = 0;
+            let totalSessions = workPeriods.length;
+            let totalHours = 0;
+
+            // 统计有工作记录的人数
+            const workersSet = new Set();
+
+            workPeriods.forEach(period => {
+                const duration = parseFloat(period.dataset.duration);
+                totalHours += duration;
+
+                // 从ID中提取人员姓名
+                const container = period.closest('.timeline-item');
+                const personName = container.querySelector('.person-name').textContent.trim();
+                workersSet.add(personName);
+            });
+
+            totalWorkers = workersSet.size;
+            const avgHours = totalWorkers > 0 ? totalHours / totalWorkers : 0;
+
+            // 更新显示
+            document.getElementById('total-workers').textContent = totalWorkers;
+            document.getElementById('total-sessions').textContent = totalSessions;
+            document.getElementById('total-hours').textContent = totalHours.toFixed(1);
+            document.getElementById('avg-hours').textContent = avgHours.toFixed(1);
+        }
+
+        function formatTime(hours) {
+            const h = Math.floor(hours);
+            const m = Math.round((hours - h) * 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+
+        // 添加键盘快捷键支持
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.key === 'Backspace') {
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>
